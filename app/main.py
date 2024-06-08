@@ -1,6 +1,7 @@
 import os
 import zlib
 import argparse
+import hashlib
 
 
 def read_file_path(sha_objectname):
@@ -14,9 +15,29 @@ def read_file_path(sha_objectname):
 
 
 def get_file_content(read_blob_object):
-    # how shall i get the contents from the blob object
     result = read_blob_object.split(b"\x00")
     return result[-1]
+
+
+def create_blob_object(file_name):
+    try:
+        with open(file_name, "r") as f:
+            contents = f.read()
+            content = f"blob {len(contents)}\0{contents}".encode()
+            hex_value = hashlib.sha1(content).hexdigest()
+            return zlib.compress(content), hex_value
+    except FileNotFoundError:
+        return None
+
+
+def write_blob_object(sha_value, content):
+    git_prefix = ".git/objects"
+    file_path = f"{git_prefix}/{sha_value[:2]}/{sha_value[2:]}"
+    try:
+        with open(file_path, "wb") as f:
+            f.write(content)
+    except FileNotFoundError:
+        return None
 
 
 def main():
@@ -24,6 +45,10 @@ def main():
     parser.add_argument("command", action="store", help="input git helper commands")
     parser.add_argument(
         "-p", dest="hash_value", action="store", type=str, help="enable p flag"
+    )
+
+    parser.add_argument(
+        "-w", dest="write_file", action="store", help="write output to file"
     )
 
     args = parser.parse_args()
@@ -40,6 +65,13 @@ def main():
         if read_blob_object:
             file_contents = get_file_content(read_blob_object)
             print(file_contents.decode("utf-8"), end="")
+    elif args.command == "hash-object":
+        file_name = args.write_file
+        contents, hash_value = create_blob_object(file_name)
+        # print(contents)
+        write_blob_object(hash_value, contents)
+        print(hash_value, end="")
+
     else:
         raise RuntimeError(f"Unknown command #{args.command}")
 
