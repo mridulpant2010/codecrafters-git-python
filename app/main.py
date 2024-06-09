@@ -21,9 +21,9 @@ def get_file_content(read_blob_object):
 
 def create_blob_object(file_name):
     try:
-        with open(file_name, "r") as f:
+        with open(file_name, "rb") as f:
             contents = f.read()
-            content = f"blob {len(contents)}\0{contents}".encode()
+            content = f"blob {len(contents)}\x00{contents.decode("utf-8")}".encode("ascii")
             hex_value = hashlib.sha1(content).hexdigest()
             return zlib.compress(content), hex_value
     except FileNotFoundError:
@@ -31,9 +31,12 @@ def create_blob_object(file_name):
 
 
 def write_blob_object(sha_value, content):
+    
     git_prefix = ".git/objects"
     file_path = f"{git_prefix}/{sha_value[:2]}/{sha_value[2:]}"
     try:
+        git_path=os.path.join(os.getcwd(),git_prefix)
+        os.mkdir(os.path.join(git_path,sha_value[:2]))
         with open(file_path, "wb") as f:
             f.write(content)
     except FileNotFoundError:
@@ -67,9 +70,8 @@ def main():
             print(file_contents.decode("utf-8"), end="")
     elif args.command == "hash-object":
         file_name = args.write_file
-        contents, hash_value = create_blob_object(file_name)
-        # print(contents)
-        write_blob_object(hash_value, contents)
+        compressed_contents, hash_value = create_blob_object(file_name)
+        write_blob_object(hash_value, compressed_contents)
         print(hash_value, end="")
 
     else:
