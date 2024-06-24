@@ -60,7 +60,47 @@ def write_blob_object(sha_value, content):
             f.write(content)
     except FileNotFoundError:
         return None
+    
+    # seems a bit tough right now, I am unable to figure out what needs to be done.
+def list_recursive_contents(directory_path):
+    st = []
+    for root, dirs, files in os.walk(directory_path):
+        # Exclude specific directory names (recursively)
+        dirs[:] = [d for d in dirs if d not in (".git", ".gitattributes", ".gitignore")]
+        list_of_paths=[]
+        for name in dirs:
+            dir_path = os.path.join(root, name)
+            list_of_paths.append(dir_path)
+            print(f"Directory: {dir_path}")
+            
+        for filename in files:
+            file_path = os.path.join(root, filename)
+            list_of_paths.append(file_path)
+            print(f"{file_path}")
+        
+        #write tree object
+        st.append(list_of_paths)
 
+
+    # Usage
+    # directory_path = "/path/to/your/directory"
+    # list_recursive_contents(directory_path)
+
+
+def write_tree_object(input_array):
+    file_info =[]
+    for each_path in input_array:
+        if each_path.os.path.isfile():
+            compressed_contents, hash_value = create_blob_object(each_path)
+            write_blob_object(hash_value, compressed_contents)
+            print(hash_value, end="")
+            file_info.append((each_path,hash_value))
+        
+        elif each_path.os.path.isdir():
+            if len(file_info)>0:
+                
+               pass 
+    
 
 def main():
     parser = argparse.ArgumentParser(description="A simple CLI example.")
@@ -106,6 +146,12 @@ def main():
         condition = args.name_only is not None
         # print(tree_object, end="")
         get_tree_content(tree_object, condition)
+    elif args.command == "write-tree":
+        # do we have to create a tree object file which will have the entire details?
+        # find the contents of the file
+        
+        
+        
 
     else:
         raise RuntimeError(f"Unknown command #{args.command}")
