@@ -88,9 +88,11 @@ def list_recursive_contents(directory_path):
     # list_recursive_contents(directory_path)
 
 
-def write_tree_object(input_array, prev_tree_object, prev_parent_path):
+def write_tree_object(input_array):
     tree_object = b""
     for each_path in input_array:
+        parent_path = each_path.split("/")[:-1]
+        parent_path = "/".join(parent_path)
         if os.path.isfile(each_path):
             compressed_contents, hash_value = create_blob_object(each_path)
             write_object(hash_value, compressed_contents)
@@ -98,15 +100,18 @@ def write_tree_object(input_array, prev_tree_object, prev_parent_path):
             tree_object += f"100644 {each_path}\0".encode() + int.to_bytes(
                 int(hash_value, base=16), length=20, byteorder="big"
             )  # hash_value  # each_path is the full
+            parent_key_tree_object[parent_path] = tree_object
 
         elif os.path.isdir(each_path):
             # involve prev_tree_object
             # ? how to get the hash_value of a directory?
-            if each_path in prev_parent_path:
+            if each_path in parent_key_tree_object.keys():
                 tree_object += (
                     f"40000 {each_path}\0".encode()  # ?: hash_value required or not?
                 )  # each_path is the full
-                tree_object += prev_tree_object  # TODO: datatype difference between tree_object and prev_tree_object?
+                tree_object += parent_key_tree_object.get(
+                    each_path, b""
+                )  # prev_tree_object  # TODO: datatype difference between tree_object and prev_tree_object?
                 # write_tree_object(list_recursive_contents(each_path))
                 prepend = f"tree {len(tree_object)}\x00".encode()
                 content_to_hash = (
@@ -117,10 +122,9 @@ def write_tree_object(input_array, prev_tree_object, prev_parent_path):
                 # hash_value = int.to_bytes(
                 #     int(hash_value, base=16), length=20, byteorder="big"
                 # )
+                parent_key_tree_object[parent_path] = tree_object
                 write_object(hash_value, compressed_obj)
 
-        parent_path = each_path.split("/")[:-1]
-        parent_path = "/".join(parent_path)
     return tree_object, parent_path, hash_value
     # return compressed tree_object? and the parent_file_path?
 
@@ -173,21 +177,27 @@ def main():
         # do we have to create a tree object file which will have the entire details?
         # find the contents of the file
         directory_path = os.getcwd()
-        prev_tree_object, prev_parent_path = b"", None
         result = list_recursive_contents(directory_path)
-        print(result)
+        # print(result)
         while len(result) > 0:
             ans = result.pop()
-            print("level -> ",ans)
-            prev_tree_object, prev_parent_path, sha_value = write_tree_object(
-                ans, prev_tree_object, prev_parent_path
-            )
-            print(prev_tree_object, prev_parent_path,sha_value)
-        print(sha_value)
+            # print("level -> ",ans)
+            prev_tree_object, prev_parent_path, sha_value = write_tree_object(ans)
+            # print(prev_tree_object, prev_parent_path,sha_value)
+        # print(sha_value)
+        prepend = f"tree {len(prev_tree_object)}\x00".encode()
+        content_to_hash = (
+            prepend + prev_tree_object
+        )  # ?: is it the right contents of the file?
+        compressed_obj = zlib.compress(content_to_hash)
+        hash_value = hashlib.sha1(content_to_hash).hexdigest()
+        write_object(hash_value, compressed_obj)
+        print(hash_value)
 
     else:
         raise RuntimeError(f"Unknown command #{args.command}")
 
 
 if __name__ == "__main__":
+    parent_key_tree_object = {}
     main()
